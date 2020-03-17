@@ -1,0 +1,10 @@
+apiVersion: gateway.kyma-project.io/v1alpha2
+kind: Api
+metadata:
+  name: fsm-extension-installer-api
+spec:
+  authentication: []
+  service:
+    name: fsm-extension-installer
+    port: 8080
+  hostname: fsm-extension-installer.kyma.local

@@ -1,0 +1,108 @@
+apiVersion: kubeless.io/v1beta1
+kind: Function
+metadata:
+  annotations:
+    function-size: XS
+  creationTimestamp: "2020-03-06T07:14:17Z"
+  finalizers:
+  - kubeless.io/function
+  generation: 34
+  labels:
+    app: fsm-extension-installer
+  name: fsm-extension-installer
+  namespace: extension-installer
+  resourceVersion: "1075888"
+  selfLink: /apis/kubeless.io/v1beta1/namespaces/extension-installer/functions/fsm-extension-installer
+  uid: d47233e9-e134-4bd7-9c0f-c7606edd8777
+spec:
+  checksum: sha256:3404edaaa23cf04c1d65aa1c5de0bd2ffaf85ca689489ccfc79aabe77559ce86
+  deployment:
+    metadata:
+      creationTimestamp: null
+    spec:
+      replicas: 1
+      strategy: {}
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+          - env: []
+            name: fsm-extension-installer
+            resources:
+              limits:
+                cpu: 100m
+                memory: 128Mi
+              requests:
+                cpu: 100m
+                memory: 100Mi
+    status: {}
+  deps: |-
+    {
+      "name": "fsm-extension-installer",
+      "version": "0.0.1",
+      "dependencies": {
+        "@kubernetes/client-node": "^0.11.1",
+        "request-promise": "^4.2.5"
+      }
+    }
+  function: "const k8s = require('@kubernetes/client-node');\nconst request = require('request-promise');\n\nmodule.exports
+    = { main: async function (event, context) {\n        const kc = new k8s.KubeConfig();\n
+    \       kc.loadFromDefault(); // use the pod's serviceaccount\n\n        const
+    opts = {};\n        kc.applyToRequest(opts);\n\n        // refer: https://docs.fluxcd.io/projects/helm-operator/en/1.0.0-rc9/references/helmrelease-custom-resource.html\n
+    \       let hrReleaseTemplate = `\n  {\n    \"apiVersion\": \"helm.fluxcd.io/v1\",\n
+    \   \"kind\": \"HelmRelease\",\n    \"metadata\": {\n       \"name\": \"<HelmRelease
+    name>\"\n    },\n    \"spec\": {\n       \"releaseName\": \"<release name>\",\n
+    \      \"chart\": {\n         \"repository\": \"<chart repo>\",\n         \"version\":
+    \"<version>\",\n         \"name\": \"<name>\"\n       },\n       \"values\": {\n
+    \        \"replicaCount\": 2\n       }\n    }\n  }`;\n        hrReleaseTemplate
+    = hrReleaseTemplate.replace(/<HelmRelease name>/g, event.data.name); // shall
+    be extension deployment id?\n        hrReleaseTemplate = hrReleaseTemplate.replace(/<release
+    name>/g, event.data.name); // shall be unique at any time, since it is used by
+    helm\n        hrReleaseTemplate = hrReleaseTemplate.replace(/<version>/g, event.data.version);\n
+    \       hrReleaseTemplate = hrReleaseTemplate.replace(/<chart repo>/g, event.data.repository);\n
+    \       hrReleaseTemplate = hrReleaseTemplate.replace(/<name>/g, event.data.name);\n
+    \       console.log(hrReleaseTemplate);\n \n        opts.method = 'POST';\n        opts.uri
+    = `${kc.getCurrentCluster().server}/apis/helm.fluxcd.io/v1/namespaces/${event.data.namespace}/helmreleases`;\n
+    \       opts.body = JSON.parse(hrReleaseTemplate);\n        opts.json = true;\n
+    \       try {\n          let response = await request(opts);\n          console.log(response);\n
+    \       }\n        catch (error) {\n          console.log(error);\n        }\n
+    \   }\n}"
+  function-content-type: text
+  handler: handler.main
+  horizontalPodAutoscaler:
+    metadata:
+      creationTimestamp: null
+      labels:
+        function: fsm-extension-installer
+      name: fsm-extension-installer
+      namespace: extension-installer
+    spec:
+      maxReplicas: 1
+      metrics:
+      - resource:
+          name: cpu
+          targetAverageUtilization: 50
+        type: Resource
+      minReplicas: 1
+      scaleTargetRef:
+        apiVersion: apps/v1beta1
+        kind: Deployment
+        name: fsm-extension-installer
+    status:
+      conditions: null
+      currentMetrics: null
+      currentReplicas: 0
+      desiredReplicas: 0
+  runtime: nodejs8
+  service:
+    ports:
+    - name: http-function-port
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      created-by: kubeless
+      function: fsm-extension-installer
+  timeout: ""
+  topic: http
